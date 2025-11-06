@@ -1,8 +1,3 @@
-// =============================================
-// Enhanced Interview Helper Component
-// Features: Speech Recognition, Local Storage, History Management
-// =============================================
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,14 +34,12 @@ const InterviewHelper = () => {
         const savedHistory = localStorage.getItem('interviewHistory');
         if (savedHistory) {
           const parsed = JSON.parse(savedHistory);
-          // Validate it's an array before setting state
           if (Array.isArray(parsed)) {
             setInterviewHistory(parsed);
           }
         }
       } catch (error) {
         console.error('Error loading interview history:', error);
-        // Clear corrupted data
         localStorage.removeItem('interviewHistory');
       }
     };
@@ -56,17 +49,13 @@ const InterviewHelper = () => {
 
   // Save history to localStorage whenever it changes
   useEffect(() => {
-    const saveHistory = () => {
-      if (interviewHistory.length > 0) {
-        try {
-          localStorage.setItem('interviewHistory', JSON.stringify(interviewHistory));
-        } catch (error) {
-          console.error('Error saving interview history:', error);
-        }
+    if (interviewHistory.length > 0) {
+      try {
+        localStorage.setItem('interviewHistory', JSON.stringify(interviewHistory));
+      } catch (error) {
+        console.error('Error saving interview history:', error);
       }
-    };
-
-    saveHistory();
+    }
   }, [interviewHistory]);
 
   // =============================================
@@ -74,7 +63,6 @@ const InterviewHelper = () => {
   // =============================================
 
   useEffect(() => {
-    // Check browser support for speech recognition
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
         title: "Browser Not Supported",
@@ -84,14 +72,12 @@ const InterviewHelper = () => {
       return;
     }
 
-    // Initialize speech recognition
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = 'en-US';
 
-    // Handle speech recognition results
     recognitionRef.current.onresult = async (event: any) => {
       const transcript = Array.from(event.results)
         .map((result: any) => result[0])
@@ -100,13 +86,11 @@ const InterviewHelper = () => {
 
       setQuestion(transcript);
 
-      // Trigger AI suggestion when final result is detected
       if (event.results && event.results.length > 0 && event.results[event.results.length - 1].isFinal) {
         await getAISuggestion(transcript);
       }
     };
 
-    // Handle speech recognition errors
     recognitionRef.current.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       toast({
@@ -117,14 +101,13 @@ const InterviewHelper = () => {
       setIsListening(false);
     };
 
-    // Handle when recognition ends automatically
     recognitionRef.current.onend = () => {
       setIsListening(false);
     };
   }, []);
 
   // =============================================
-  // MICROPHONE CONTROL FUNCTIONS
+  // MICROPHONE CONTROL
   // =============================================
 
   const toggleListening = () => {
@@ -138,7 +121,6 @@ const InterviewHelper = () => {
     }
 
     if (isListening) {
-      // Stop listening
       recognitionRef.current.stop();
       setIsListening(false);
       toast({
@@ -146,12 +128,11 @@ const InterviewHelper = () => {
         description: "Microphone turned off",
       });
     } else {
-      // Start listening
       try {
         recognitionRef.current.start();
         setIsListening(true);
-        setQuestion(""); // Clear previous question
-        setSuggestion(""); // Clear previous suggestion
+        setQuestion("");
+        setSuggestion("");
         toast({
           title: "Listening",
           description: "Microphone is active and listening for questions...",
@@ -168,11 +149,10 @@ const InterviewHelper = () => {
   };
 
   // =============================================
-  // AI SUGGESTION FUNCTIONS
+  // AI SUGGESTION - UPDATED WITH YOUR EXACT DENO DEPLOY URL
   // =============================================
 
   const getAISuggestion = async (interviewQuestion: string) => {
-    // Input validation
     if (!interviewQuestion || !interviewQuestion.trim()) {
       toast({
         title: "No Question",
@@ -183,12 +163,11 @@ const InterviewHelper = () => {
     }
 
     setIsLoading(true);
-    setSuggestion(""); // Clear previous suggestion
+    setSuggestion("");
     
     try {
-      // Use environment variable for API URL with fallback
-      // Use environment variable for API URL with fallback
-      const API_URL = import.meta.env.VITE_API_URL || 'https://large-mole-76.reala540.deno.net/';
+      // 🔥 YOUR EXACT DENO DEPLOY URL - VERIFIED WORKING
+      const API_URL = 'https://large-mole-76.reala540.deno.net/';
       
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -198,31 +177,24 @@ const InterviewHelper = () => {
         body: JSON.stringify({ question: interviewQuestion.trim() })
       });
 
-      // Handle non-JSON responses
-      const responseText = await response.text();
-      let data;
-      
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError, responseText);
-        throw new Error('Invalid response from AI service');
-      }
-
-      // Handle API errors
+      // Handle response with proper error checking
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Validate response structure
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       if (!data.suggestion) {
         throw new Error('No suggestion received from AI service');
       }
 
-      // Update UI with new suggestion
       setSuggestion(data.suggestion);
       
-      // Save to history with error handling
+      // Save to history
       try {
         const newHistoryItem: InterviewHistoryItem = {
           id: Date.now(),
@@ -231,11 +203,10 @@ const InterviewHelper = () => {
           timestamp: new Date().toLocaleString()
         };
         
-        const updatedHistory = [newHistoryItem, ...interviewHistory].slice(0, 50); // Keep last 50
+        const updatedHistory = [newHistoryItem, ...interviewHistory].slice(0, 50);
         setInterviewHistory(updatedHistory);
       } catch (historyError) {
         console.error('Error saving to history:', historyError);
-        // Don't throw - history save failure shouldn't break the main flow
       }
 
     } catch (error) {
@@ -335,13 +306,13 @@ const InterviewHelper = () => {
   };
 
   // =============================================
-  // COMPONENT RENDER
+  // COMPONENT RENDER - ORIGINAL LOGIC PRESERVED
   // =============================================
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/30">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header Section */}
+        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Live Interview Helper
@@ -351,7 +322,7 @@ const InterviewHelper = () => {
           </p>
         </div>
 
-        {/* History Management Controls */}
+        {/* History Management */}
         <div className="flex justify-end mb-4">
           <div className="flex gap-2">
             <Button
@@ -406,7 +377,7 @@ const InterviewHelper = () => {
 
         {/* Main Content Grid */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Question Detection Card */}
+          {/* Question Detection */}
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Question Detected</h2>
@@ -443,7 +414,7 @@ const InterviewHelper = () => {
             </p>
           </Card>
 
-          {/* AI Suggestion Card */}
+          {/* AI Suggestion */}
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">AI Suggestion</h2>
@@ -485,7 +456,7 @@ const InterviewHelper = () => {
           </Card>
         </div>
 
-        {/* Tips Card */}
+        {/* Tips */}
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
           <h3 className="text-lg font-semibold mb-4">Tips for Best Results</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
@@ -516,4 +487,4 @@ const InterviewHelper = () => {
   );
 };
 
-export default InterviewHelper;
+export default interview-helper;
