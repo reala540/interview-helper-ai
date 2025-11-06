@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Mic, MicOff, Copy, Check, Trash2, Download, History } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-// Type definition for interview history
 interface InterviewHistoryItem {
   id: number;
   question: string;
@@ -13,7 +12,6 @@ interface InterviewHistoryItem {
 }
 
 const InterviewHelper = () => {
-  // State management
   const [isListening, setIsListening] = useState(false);
   const [question, setQuestion] = useState("");
   const [suggestion, setSuggestion] = useState("");
@@ -23,31 +21,23 @@ const InterviewHelper = () => {
   const [showHistory, setShowHistory] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // =============================================
-  // LOCAL STORAGE MANAGEMENT
-  // =============================================
-
-  // Load history from localStorage on component mount
+  // Load history from localStorage
   useEffect(() => {
-    const loadHistory = () => {
+    const savedHistory = localStorage.getItem('interviewHistory');
+    if (savedHistory) {
       try {
-        const savedHistory = localStorage.getItem('interviewHistory');
-        if (savedHistory) {
-          const parsed = JSON.parse(savedHistory);
-          if (Array.isArray(parsed)) {
-            setInterviewHistory(parsed);
-          }
+        const parsed = JSON.parse(savedHistory);
+        if (Array.isArray(parsed)) {
+          setInterviewHistory(parsed);
         }
       } catch (error) {
         console.error('Error loading interview history:', error);
         localStorage.removeItem('interviewHistory');
       }
-    };
-
-    loadHistory();
+    }
   }, []);
 
-  // Save history to localStorage whenever it changes
+  // Save history to localStorage
   useEffect(() => {
     if (interviewHistory.length > 0) {
       try {
@@ -58,10 +48,7 @@ const InterviewHelper = () => {
     }
   }, [interviewHistory]);
 
-  // =============================================
-  // SPEECH RECOGNITION SETUP
-  // =============================================
-
+  // Speech Recognition Setup
   useEffect(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
@@ -106,10 +93,6 @@ const InterviewHelper = () => {
     };
   }, []);
 
-  // =============================================
-  // MICROPHONE CONTROL
-  // =============================================
-
   const toggleListening = () => {
     if (!recognitionRef.current) {
       toast({
@@ -124,7 +107,7 @@ const InterviewHelper = () => {
       recognitionRef.current.stop();
       setIsListening(false);
       toast({
-        title: "Stopped",
+        title: "Stopped Listening",
         description: "Microphone turned off",
       });
     } else {
@@ -134,7 +117,7 @@ const InterviewHelper = () => {
         setQuestion("");
         setSuggestion("");
         toast({
-          title: "Listening",
+          title: "Listening Started",
           description: "Microphone is active and listening for questions...",
         });
       } catch (error) {
@@ -148,12 +131,9 @@ const InterviewHelper = () => {
     }
   };
 
-  // =============================================
-  // AI SUGGESTION - UPDATED WITH YOUR EXACT DENO DEPLOY URL
-  // =============================================
-
+  // AI Suggestion with YOUR Deno Deploy URL
   const getAISuggestion = async (interviewQuestion: string) => {
-    if (!interviewQuestion || !interviewQuestion.trim()) {
+    if (!interviewQuestion?.trim()) {
       toast({
         title: "No Question",
         description: "Please speak a question first.",
@@ -166,48 +146,33 @@ const InterviewHelper = () => {
     setSuggestion("");
     
     try {
-      // 🔥 YOUR EXACT DENO DEPLOY URL - VERIFIED WORKING
+      // 🔥 YOUR DENO DEPLOY URL
       const API_URL = 'https://large-mole-76.reala540.deno.net/';
       
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: interviewQuestion.trim() })
       });
 
-      // Handle response with proper error checking
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      if (!data.suggestion) {
-        throw new Error('No suggestion received from AI service');
-      }
+      if (data.error) throw new Error(data.error);
+      if (!data.suggestion) throw new Error('No suggestion received');
 
       setSuggestion(data.suggestion);
       
       // Save to history
-      try {
-        const newHistoryItem: InterviewHistoryItem = {
-          id: Date.now(),
-          question: interviewQuestion,
-          suggestion: data.suggestion,
-          timestamp: new Date().toLocaleString()
-        };
-        
-        const updatedHistory = [newHistoryItem, ...interviewHistory].slice(0, 50);
-        setInterviewHistory(updatedHistory);
-      } catch (historyError) {
-        console.error('Error saving to history:', historyError);
-      }
+      const newHistoryItem: InterviewHistoryItem = {
+        id: Date.now(),
+        question: interviewQuestion,
+        suggestion: data.suggestion,
+        timestamp: new Date().toLocaleString()
+      };
+      
+      const updatedHistory = [newHistoryItem, ...interviewHistory].slice(0, 50);
+      setInterviewHistory(updatedHistory);
 
     } catch (error) {
       console.error('Error getting AI suggestion:', error);
@@ -221,10 +186,6 @@ const InterviewHelper = () => {
     }
   };
 
-  // =============================================
-  // UTILITY FUNCTIONS
-  // =============================================
-
   const copyToClipboard = () => {
     if (!suggestion) {
       toast({
@@ -235,21 +196,23 @@ const InterviewHelper = () => {
       return;
     }
 
-    navigator.clipboard.writeText(suggestion).then(() => {
-      setCopied(true);
-      toast({
-        title: "Copied!",
-        description: "Response copied to clipboard",
+    navigator.clipboard.writeText(suggestion)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Copied!",
+          description: "Response copied to clipboard",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy text: ', err);
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        });
       });
-      setTimeout(() => setCopied(false), 2000);
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast({
-        title: "Copy Failed",
-        description: "Failed to copy to clipboard",
-        variant: "destructive",
-      });
-    });
   };
 
   const clearHistory = () => {
@@ -258,7 +221,7 @@ const InterviewHelper = () => {
       localStorage.removeItem('interviewHistory');
       toast({
         title: "History Cleared",
-        description: "Interview history cleared successfully",
+        description: "All interview history has been cleared",
       });
     } catch (error) {
       console.error('Error clearing history:', error);
@@ -292,8 +255,8 @@ const InterviewHelper = () => {
       URL.revokeObjectURL(url);
       
       toast({
-        title: "Export Successful",
-        description: "Interview history downloaded as JSON",
+        title: "Exported Successfully",
+        description: "Interview history downloaded as JSON file",
       });
     } catch (error) {
       console.error('Error exporting history:', error);
@@ -305,14 +268,9 @@ const InterviewHelper = () => {
     }
   };
 
-  // =============================================
-  // COMPONENT RENDER - ORIGINAL LOGIC PRESERVED
-  // =============================================
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-card/30">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Live Interview Helper
@@ -322,13 +280,12 @@ const InterviewHelper = () => {
           </p>
         </div>
 
-        {/* History Management */}
         <div className="flex justify-end mb-4">
           <div className="flex gap-2">
-            <Button
-              onClick={() => setShowHistory(!showHistory)}
-              variant="outline"
-              size="sm"
+            <Button 
+              onClick={() => setShowHistory(!showHistory)} 
+              variant="outline" 
+              size="sm" 
               className="gap-2"
             >
               <History className="h-4 w-4" />
@@ -336,19 +293,19 @@ const InterviewHelper = () => {
             </Button>
             {interviewHistory.length > 0 && (
               <>
-                <Button
-                  onClick={exportHistory}
-                  variant="outline"
-                  size="sm"
+                <Button 
+                  onClick={exportHistory} 
+                  variant="outline" 
+                  size="sm" 
                   className="gap-2"
                 >
                   <Download className="h-4 w-4" />
                   Export
                 </Button>
-                <Button
-                  onClick={clearHistory}
-                  variant="destructive"
-                  size="sm"
+                <Button 
+                  onClick={clearHistory} 
+                  variant="destructive" 
+                  size="sm" 
                   className="gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -359,7 +316,6 @@ const InterviewHelper = () => {
           </div>
         </div>
 
-        {/* Interview History Panel */}
         {showHistory && interviewHistory.length > 0 && (
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border mb-6">
             <h3 className="text-lg font-semibold mb-4">Interview History ({interviewHistory.length})</h3>
@@ -375,23 +331,17 @@ const InterviewHelper = () => {
           </Card>
         )}
 
-        {/* Main Content Grid */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Question Detection */}
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Question Detected</h2>
-              <Button
-                onClick={toggleListening}
-                variant={isListening ? "destructive" : "default"}
-                size="icon"
+              <Button 
+                onClick={toggleListening} 
+                variant={isListening ? "destructive" : "default"} 
+                size="icon" 
                 className="rounded-full"
               >
-                {isListening ? (
-                  <MicOff className="h-5 w-5" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
+                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </Button>
             </div>
             <div className="min-h-[200px] p-4 rounded-lg bg-background/50 border border-border">
@@ -414,22 +364,17 @@ const InterviewHelper = () => {
             </p>
           </Card>
 
-          {/* AI Suggestion */}
           <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">AI Suggestion</h2>
               {suggestion && (
-                <Button
-                  onClick={copyToClipboard}
-                  variant="outline"
-                  size="icon"
+                <Button 
+                  onClick={copyToClipboard} 
+                  variant="outline" 
+                  size="icon" 
                   className="rounded-full"
                 >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               )}
             </div>
@@ -437,9 +382,18 @@ const InterviewHelper = () => {
               {isLoading && (
                 <div className="flex items-center gap-3">
                   <div className="flex gap-2">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <div 
+                      className="w-2 h-2 rounded-full bg-primary animate-bounce" 
+                      style={{ animationDelay: "0ms" }} 
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full bg-primary animate-bounce" 
+                      style={{ animationDelay: "150ms" }} 
+                    />
+                    <div 
+                      className="w-2 h-2 rounded-full bg-primary animate-bounce" 
+                      style={{ animationDelay: "300ms" }} 
+                    />
                   </div>
                   <p className="text-muted-foreground">Generating AI response...</p>
                 </div>
@@ -456,7 +410,6 @@ const InterviewHelper = () => {
           </Card>
         </div>
 
-        {/* Tips */}
         <Card className="p-6 bg-card/50 backdrop-blur-sm border-border">
           <h3 className="text-lg font-semibold mb-4">Tips for Best Results</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
@@ -487,4 +440,4 @@ const InterviewHelper = () => {
   );
 };
 
-export default interview-helper;
+export default InterviewHelper;
